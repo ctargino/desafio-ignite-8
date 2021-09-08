@@ -4,36 +4,50 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
-  PrimaryGeneratedColumn
-} from 'typeorm';
-import { v4 as uuid } from 'uuid';
+  PrimaryGeneratedColumn,
+} from "typeorm";
+import { v4 as uuid } from "uuid";
 
-import { User } from '../../users/entities/User';
+import { User } from "../../users/entities/User";
 
-enum OperationType {
-  DEPOSIT = 'deposit',
-  WITHDRAW = 'withdraw',
+export enum OperationType {
+  DEPOSIT = "deposit",
+  WITHDRAW = "withdraw",
+  TRANSFER = "transfer",
 }
 
-@Entity('statements')
+@Entity("statements")
 export class Statement {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id?: string;
 
-  @Column('uuid')
+  @Column("uuid")
   user_id: string;
 
-  @ManyToOne(() => User, user => user.statement)
-  @JoinColumn({ name: 'user_id' })
+  @ManyToOne(() => User, (user) => user.statement, {
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+  })
+  @JoinColumn({ name: "user_id" })
   user: User;
+
+  @Column("uuid", { nullable: true })
+  sender_id?: string;
+
+  @ManyToOne(() => User, (sender) => sender.statement, {
+    onUpdate: "CASCADE",
+    onDelete: "CASCADE",
+  })
+  @JoinColumn({ name: "sender_id" })
+  sender: User;
 
   @Column()
   description: string;
 
-  @Column('decimal', { precision: 5, scale: 2 })
+  @Column("decimal", { precision: 5, scale: 2 })
   amount: number;
 
-  @Column({ type: 'enum', enum: OperationType })
+  @Column({ type: "enum", enum: OperationType })
   type: OperationType;
 
   @CreateDateColumn()

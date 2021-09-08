@@ -15,50 +15,76 @@ export class StatementsRepository implements IStatementsRepository {
 
   async create({
     user_id,
+    sender_id,
     amount,
     description,
-    type
+    type,
   }: ICreateStatementDTO): Promise<Statement> {
     const statement = this.repository.create({
       user_id,
+      sender_id,
       amount,
       description,
-      type
+      type,
     });
 
     return this.repository.save(statement);
   }
 
-  async findStatementOperation({ statement_id, user_id }: IGetStatementOperationDTO): Promise<Statement | undefined> {
+  async findStatementOperation({
+    statement_id,
+    user_id,
+  }: IGetStatementOperationDTO): Promise<Statement | undefined> {
     return this.repository.findOne(statement_id, {
-      where: { user_id }
+      where: { user_id },
     });
   }
 
-  async getUserBalance({ user_id, with_statement = false }: IGetBalanceDTO):
-    Promise<
-      { balance: number } | { balance: number, statement: Statement[] }
-    >
-  {
+  async getUserBalance({
+    user_id,
+    with_statement = false,
+  }: IGetBalanceDTO): Promise<
+    { balance: number } | { balance: number; statement: Statement[] }
+  > {
     const statement = await this.repository.find({
-      where: { user_id }
+      where: { user_id },
     });
 
-    const balance = statement.reduce((acc, operation) => {
-      if (operation.type === 'deposit') {
-        return acc + operation.amount;
+    let balance = 0;
+
+    const balanceStatement = statement.reduce((acc, operation) => {
+      if (operation.type === "deposit" || operation.type === "transfer") {
+        return acc + Number(operation.amount);
       } else {
-        return acc - operation.amount;
+        return acc - Number(operation.amount);
       }
-    }, 0)
+    }, 0);
+
+    balance = balanceStatement;
+
+    const transferStatement = await this.repository.find({
+      where: { sender_id: user_id },
+    });
+
+    if (transferStatement) {
+      const balanceTransfer = transferStatement.reduce((acc, operation) => {
+        if (operation.type === "transfer" && operation.sender_id === user_id) {
+          return acc - Number(operation.amount);
+        } else {
+          return Number(operation.amount);
+        }
+      }, 0);
+
+      balance = balanceStatement + balanceTransfer;
+    }
 
     if (with_statement) {
       return {
-        statement,
-        balance
-      }
+        statement: [...statement, ...transferStatement],
+        balance,
+      };
     }
 
-    return { balance }
+    return { balance };
   }
 }
